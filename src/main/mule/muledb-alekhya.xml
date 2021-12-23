@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="d3f0a6c5-5a01-46b1-9052-913e229fbed5" >
+		<http:listener-connection host="0.0.0.0" port="${httpconn.port}" />
+	</http:listener-config>
+	<db:config name="Database_Config2" doc:name="Database Config" doc:id="6af4f185-458a-4058-bcf2-581b95700bf3" >
+		<db:mssql-connection host="${bikestoredb.host}" port="${bikestoredb.port}" user="${bikestoredb.user}" password="${secure::bikestoredb.password}" databaseName="${bikestoredb.dbName}" />
+	</db:config>
+	<configuration-properties doc:name="Configuration properties" doc:id="a37ccdf4-4c8a-427b-a6ea-45206148ddf7" file="muledb properties\dev.yaml" />
+	<secure-properties:config name="Secure_Properties_Config" doc:name="Secure Properties Config" doc:id="98ae5c66-d242-4acb-bd08-3684c5c27205" file="muledb properties\dev.yaml" key="mulesoft@1234567" />
+	<flow name="muledb-alekhyaFlow" doc:id="3c6b2bb3-1373-41f3-8e4b-0463d81c0e79" >
+		<http:listener doc:name="muledatabase" doc:id="8d194ebf-c2e5-41d6-96a8-a9c9a33c0437" path="/muledatabase" config-ref="HTTP_Listener_config"/>
+		<db:select doc:name="Select" doc:id="be6e1770-a517-4fdd-9382-941fb650c1db" config-ref="Database_Config2">
+			<db:sql ><![CDATA[select * from production.categories where category_name  = 'ALEKHYA']]></db:sql>
+		</db:select>
+		<logger level="INFO" doc:name="Logger" doc:id="09b289d4-b9cd-4383-9c20-4a7952780593" message="#[payload]" />
+		<ee:transform doc:name="Transform Message" doc:id="ea63a5cd-366e-47d8-8959-ea87548bf6a9" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="muledb-alekhyaFlow1" doc:id="6db66f85-1772-4627-8ca6-2b5c35989842" >
+		<http:listener doc:name="Listener" doc:id="acb9afab-f69e-4cbb-a360-4ac4846caf51" config-ref="HTTP_Listener_config" path="/insertintodb"/>
+		<db:insert doc:name="Insert" doc:id="7d9ba189-aad1-457e-85f5-98b4dcc9e034" config-ref="Database_Config2">
+			<db:sql ><![CDATA[insert into production.categories (category_name) values (:value)]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	value : payload.categoryname default 'alekhya-2'
+}]]]></db:input-parameters>
+		</db:insert>
+		<ee:transform doc:name="Transform Message" doc:id="d1d188f4-e498-45c9-a459-882eac8fd2de" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="3e7ebab1-3cef-4dfe-8cdf-adb9949bef27" message="starting flow name -- #[flow.name]----inserted successfully- #[payload]"/>
+	</flow>
+	<flow name="muledb-alekhyaFlow2" doc:id="5a950394-0960-4f09-ba94-112aca28ea0f" >
+		<db:listener table="production.categories" doc:name="On Table Row" doc:id="10bb905b-dea3-4f58-95f8-edc4cf061b65" config-ref="Database_Config2" watermarkColumn="category_id">
+			<scheduling-strategy >
+				<fixed-frequency frequency="10" timeUnit="SECONDS"/>
+			</scheduling-strategy>
+		</db:listener>
+		<logger level="INFO" doc:name="Logger" doc:id="76f5b7a2-e066-4dbc-a48b-78dda7fa89eb" message="#[payload]"/>
+	</flow>
+</mule>
